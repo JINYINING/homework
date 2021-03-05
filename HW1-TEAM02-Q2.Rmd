@@ -1,0 +1,140 @@
+---
+title: "Assignment1"
+author: "Team2"
+date: "2021/1/31"
+output:
+  word_document: default
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+```{r}
+library(dplyr) 
+library(rcompanion) 
+library(readxl) 
+library(tidyr) 
+library(ggplot2) 
+library(car)
+```
+
+```{r}
+PO2 <- read_excel("Purchase Orders 2.xlsx")
+head(PO2)
+```
+
+Q2a
+```{r}
+PO30 = PO2 %>% rename("v2"="A/P Terms (Months)","v1"="Cost per order") %>% filter(v2==30)
+
+a90u = mean(PO30$v1) - 
+    qt(0.05, df=nrow(PO30)-1)  * sd(PO30$v1)/sqrt(nrow(PO30)) 
+a90l = mean(PO30$v1) + 
+    qt(0.05, df=nrow(PO30)-1)  * sd(PO30$v1)/sqrt(nrow(PO30))  
+print(cbind(a90l,a90u ), digits=4) 
+```
+```{r}
+POa2 = PO2 %>% rename("v3"="Arrival Time")
+POa22= PO2 %>% rename("v3"="Arrival Time") %>% filter(v3<6)
+a2p = nrow(POa22)/nrow(POa2)
+
+a95u <- a2p + (qnorm(0.025) * sqrt(a2p*(1-a2p)/nrow(POa2)))
+a95l <- a2p - (qnorm(0.025) * sqrt(a2p*(1-a2p)/nrow(POa2)))
+print(cbind(a95l, a95u),digits=3)
+```
+The first interval means that we have 90% confidence(Probability) that the mean of [Cost per order] for orders with A/P Terms of 30 months are in the range of 22367 to 34841. The estimate is for the sample.
+The second interval means that we have 95% confidence(Probability) that the proportion of orders with [Arrival Time] less than 6 days is in the range of 0.355 to 0.177. The estimate is for the population.
+
+
+Q2b
+1) One-side test
+h0:P>0.15
+h1:p<=0.15
+```{r}
+POa2 = PO2 %>% rename("v3"="Arrival Time")
+POa22= PO2 %>% rename("v3"="Arrival Time") %>% filter(v3<6)
+a2p = nrow(POa22)/nrow(POa2)
+z = (a2p - 0.15) / sqrt(0.15*(1-0.15)/nrow(POa2))
+cv95 = qnorm(0.05)
+z
+cv95
+z<cv95
+```
+We fail to reject the null hypothesis, so it's true that the proportion is greater than 15%.
+
+2)Two-side test
+h0:mean1=mean2
+h1:mean1!=mean2
+```{r}
+PO31<- PO2 %>% rename("v2"="A/P Terms (Months)","v3"="Arrival Time") %>% filter(v2==30)
+PO32<- PO2 %>% rename("v2"="A/P Terms (Months)","v3"="Arrival Time") %>% filter(v2!=30)
+
+t.test(PO31$v3,PO32$v3)
+
+```
+p is large so we accept the h0 that mean1=mean2
+
+3) Anova Assumptions Tests
+Normality Test
+```{r}
+PO<- PO2 %>% rename("v2"="Arrival Time","v3"="Supplier") 
+PO$Group <- 4
+
+PO$Group[PO$v3 %in% c("Fast-Tie Aerospace","Hulkey Fasteners")] <- "1"
+PO$Group[PO$v3 %in% c("Alum Sheeting","Durrable Products","Manley Valve")] <- "2"
+PO$Group[PO$v3 %in% c("Steelpin Inc.","Spacetime Technologies","Pylon Accessories")] <- "3"
+
+g1 <-PO %>% filter(Group=="1") 
+g2 <-PO %>% filter(Group=="2") 
+g3 <-PO %>% filter(Group=="3") 
+hist(g1$v2, main="Histogram for `Group1`", xlab="Arrival Time")
+hist(g2$v2, main="Histogram for `Group2`", xlab="Arrival Time")
+hist(g3$v2, main="Histogram for `Group3`", xlab="Arrival Time")
+```
+Normality Test
+```{r}
+par(mfcol=c(1,3))
+qqnorm(g1$v2, main="QQplot for `Group1`", xlab="Arrival Time")
+qqline(g1$v2)
+qqnorm(g2$v2, main="QQplot for `Group2`", xlab="Arrival Time")
+qqline(g2$v2)
+qqnorm(g3$v2, main="QQplot for `Group3`", xlab="Arrival Time")
+qqline(g3$v2)
+```
+Normality Test
+```{r}
+par(mfcol= c(1,1))
+boxplot(PO$v2 ~ PO$Group)
+```
+Normality Test
+```{r}
+lapply(list(g1,g2,g3), 
+       function(sa) 
+         {
+         shapiro.test(sa$v2)
+         }) # applying test on each vector in list
+```
+```{r}
+table(PO$Group)
+```
+Equal Variance
+```{r}
+fligner.test(v2~Group,PO)
+```
+```{r}
+leveneTest(v2~ as.factor(Group), PO)
+```
+Run One-Way Anova
+```{r}
+aov.amt <- aov(PO$v2 ~ as.factor(PO$Group)) 
+summary(aov.amt)
+```
+H0:Mean arrival time for 3 groups are the same
+H1:Mean arrival time for at least one group is different from the others
+Since p is rather small we reject the h0, so we conclude that the arrival time for at least one group is different from other groups.
+
+
