@@ -1,0 +1,139 @@
+---
+title: 'Homework Assignment 2'
+subtitle: "IS5126 Hands-on with Applied Analytics"
+author: "Team2"
+date: 'Due by: Feb 21st, 2021 5:00 PM'
+output: 
+  pdf_document:
+    df_print: kable
+    highlight: tango
+    fig_width: 6
+    fig_height: 4
+    fig_caption: true
+linkcolor: MidnightBlue
+header-includes:
+- \usepackage{xcolor}
+---
+    
+## Preparation
+
+```{r load-libraries, echo=TRUE, message=FALSE, warning=FALSE}
+# load required packages
+library(dplyr)
+library(wooldridge)
+library(rcompanion)
+library(readxl)
+library(tidyr)
+library(ggplot2) 
+library(car)
+
+```
+
+## Homework 2 Part B: Assignment Submission
+
+### Question 2  (20 Marks)
+
+- Dataset required: `data('recid')`
+
+Recidivism rate in Singapore is 24% in 2016 (https://data.gov.sg/dataset/recidivism-rate). Criminals tend to replapse into criminal offense after the release from the prison. `recid.csv` contains 1445 observations of recidivism cases in United States. 
+
+```{r q3-data-input, echo=TRUE}
+recid = read.csv(file = 'recid.csv', header= TRUE)
+```
+
+
+(2a) Based on previous experience, prison staffs suggest that the recidivism period `durat` (duration between release and follow-up offense) is affected by prison serving time `tserved`, previous drug use `drugs`, achcohol abuse `achcohol` and number of prior convictions `priors`. They currently consider if they should retain the prison working program to improve the situation of follow-up offense after prison release. Run a multivariate linear regression: `durat ~ tserved + drugs + alcohol + priors + workprg`. Interpret the meaning of coefficients before `tserved` and `workprg` and discuss if prison working program should be retained from your regression result. (6 points)
+
+\textcolor{BrickRed}{**Type your answer here**}
+
+```{r q2a, echo=TRUE}
+# your code here
+
+fit1a = lm(durat ~ tserved + drugs + alcohol + priors + workprg,recid) 
+summary(fit1a) 
+## Analysis of Variance in Linear Regression (ANOVA)
+# generate ANOVA table after fitting 
+anova1a = aov(fit1a)
+print(summary(anova1a))
+#anova p-value: < 2.2e-16, reject h0 that all groups have the same mean
+#Running Residual Diagnostics
+
+plot(fit1a, which = c(1,2), caption = list("Resid vs. Fitted", "Normal Q-Q"))
+
+#Scaled
+#fit1a1 = lm(scale(durat) ~ scale(tserved) + scale(drugs) + scale(alcohol) + scale(priors) + scale(workprg), recid)
+#summary(fit1a1)
+
+
+```
+Coefficients before tserved: On average a one-unit increase in prison serving time results in 0.25630 decrease in duration between release and follow-up offense.
+Coefficients before workprg: On average a one-unit increase in prison working program results in 2.32777  increase in duration between release and follow-up offense.
+Because the p value of coefficient workprg is 0.105816 > 0.05, it shows little contribution to the duration between release and follow-up offense. Consider the financial consumption the program cost, the program should not be retained.
+
+
+(2b) The warden of prison decided to terminate the working program. Do you agree with his/her decision? Why or why not? (6 points)
+
+Hint: One of most effective way to be critical is to check the assumptions used to reach the conclusion and decision.
+
+\textcolor{BrickRed}{**Type your answer here**}
+```{r}
+#Anova test
+anova_w = aov(fit1a)
+print(summary(anova_w))
+```
+From the anova test we know that coefficient tserved, alcohol, priors are effective, so the first assumption of the linear regression is satisfied. We have checked assumption "Biased Error".
+Then we will check assumption "Heteroskedasticity".
+
+```{r q2b, echo=TRUE}
+# your code here
+
+plot(fit1a, which = c(1,2), caption = list("Resid vs. Fitted", "Normal Q-Q"))
+# conduct a Breusch-Pagen (BP) test for heteroskedasticity
+library(lmtest)
+bptest(fit1a)
+est = summary(fit1a)
+est.robust = coeftest(fit1a, vcov = sandwich)
+# make a comparison between s.e. and robust s.e.
+# let's list the coef and two different versions of s.e.'s
+coef.table.compare = cbind(est$coefficients[,1:2], est.robust[,1:2]) %>% round(4)
+colnames(coef.table.compare) = c("Duration.","SE_OLS", "Duration_White", "SE_White")
+print(coef.table.compare)
+```
+The BP test has a p value small enough to reject the h0 of homoskedasticity.
+That's why we use robust standard error. 
+For assumption normality, we have addressed it with large samples.
+In conclusion, our linear regression model satisfy the assumptions with robust standard error and we determined the prison working program as a variable with little contribution and should be terminated. We agree with the warden.
+
+
+(2c) Criminal offense lawyers usually fight for supervised release of the offender. Given five vairables in `recid` data set: `super`, `rules`, `age`, `tserved`, and `married`, how could you help the law firm to predict the outcome of a recent case given that a 32-year old married client has been serving the jail time for 3 years and 7 months and during which broken no rule in the prison? Choose a proper model with those 5 variables and interpert meaning of the coefficients in your model. (8 point)
+
+Note: Classify a successful supervised release case if probability of supervised release is greater or equal to 0.5; and no supervised release otherwise.
+
+
+\textcolor{BrickRed}{**Type your answer here**}
+
+```{r q2c, echo=TRUE}
+# your code here
+fit1c=glm(super~ rules + age + tserved + married,family=binomial,data=recid,control=list(maxit=50))
+summary(fit1c)
+exp(cbind(OddsRatio = coef(fit1c), confint(fit1c)))
+```
+Consider the supervised binomial label is our goal, we choose logistic regression model.
+The p value of the coefficients is small enough to demonstrate their effectiveness, and the logistic model is strong.
+Coefficient Interpretation:
+Every one unit increase of rules violation counts results in the log-odds of Pr(release supervised) decrease by 0.2457807.
+Every one unit increase of age results in the log-odds of Pr(release supervised) decrease by 0.0018723.
+Every one unit increase of time served in the prison results in the log-odds of Pr(release supervised) increase by 0.0324274.
+Every one unit increase of married results in the log-odds of Pr(release supervised) increase by 0.5080370.
+
+Then we predict the case using prediction interval.
+```{r}
+ndata=data.frame(rules=0,age=384,tserved=43,married=1)
+pre1=predict(fit1c,newdata=ndata,interval="prediction")
+#it's the logit
+p=exp(pre1)/(1+exp(pre1))
+print(p)
+```
+So we predict this case has a 0.9051092 probability of being supervised release, and classify it as a successful supervised release.
+
+
