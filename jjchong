@@ -4,3 +4,21 @@ import matplotlib.pyplot as plt
 import warnings
 import statsmodels.api as sm
 warnings.filterwarnings("ignore")
+
+df = pd.read_csv("dta/WorldBankData.csv")
+df.head()
+
+print(df.shape[0])
+
+# Q3a
+import numpy as np
+colors  = np.where(df["Country.Name"] == 'Singapore','r','k')
+plt.scatter(df["GDP.per.capita.PPP"] ,  df["Human.Capital.Index"] , s=120, c=colors)
+
+# Q3b
+df['GDP.per.capita.PPP.0.5'] = df['GDP.per.capita.PPP'].apply(lambda x: x**0.5)
+plt.scatter(df['GDP.per.capita.PPP.0.5'] , df['Human.Capital.Index'], s=120,c = colors) 
+
+# Q3b
+df['GDP.per.capita.PPP.0.333'] = df['GDP.per.capita.PPP'].apply(lambda x: x**0.333)
+plt.scatter(df['GDP.per.capita.PPP.0.333'] , df['Human.Capital.Index'], s=120,c = colors) 
